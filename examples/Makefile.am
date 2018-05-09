@@ -7,6 +7,7 @@ noinst_PROGRAMS = smb2-cat-async smb2-cat-sync \
 	smb2-raw-stat-async \
 	smb2-stat-sync \
 	smb2-statvfs-sync \
+	smb2-sharelist \
 	smb2-truncate-sync
 
 AM_CPPFLAGS = \
@@ -28,3 +29,4 @@ smb2_raw_stat_async_LDADD = $(COMMON_LIBS)
 smb2_stat_sync_LDADD = $(COMMON_LIBS)
 smb2_statvfs_sync_LDADD = $(COMMON_LIBS)
 smb2_truncate_sync_LDADD = $(COMMON_LIBS)
+smb2_sharelist_LDADD = $(COMMON_LIBS)

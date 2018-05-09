@@ -798,6 +798,22 @@ int smb2_echo_async(struct smb2_context *smb2,
  */
 int smb2_echo(struct smb2_context *smb2);
 
+struct smb2_shareinfo {
+        const char *name;
+};
+
+/*
+ * Sync list_shares()
+ * Function returns
+ *      0 : Success
+ * -errno : An error occured.
+ */
+int smb2_list_shares(struct smb2_context *smb2,
+                     const char *server,
+                     const char *user,
+                     struct smb2_shareinfo **shares,
+                     int *numshares);
+
 #ifdef __cplusplus
 }
 #endif

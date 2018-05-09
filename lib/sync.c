@@ -30,6 +30,7 @@
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
+#include <stdio.h>
 
 #include <errno.h>
 #include <poll.h>
@@ -39,6 +40,7 @@
 #include "libsmb2-raw.h"
 #include "libsmb2-private.h"
 
+#include <unistd.h>
 struct sync_cb_data {
 	int is_finished;
 	int status;
@@ -535,5 +537,48 @@ int smb2_echo(struct smb2_context *smb2)
     }
 
     return cb_data.status;
+}
+
+/* share_enum()
+ */
+int smb2_list_shares(struct smb2_context *smb2,
+                     const char *server,
+                     const char *user,
+                     struct smb2_shareinfo **shares,
+                     int *numshares
+                    )
+{
+        int status = 0;
+        struct smb2fh *fh = NULL;
+
+        if (server == NULL) {
+                smb2_set_error(smb2, "smb2_list_shares:server not specified");
+                return -1;
+        }
+        if (user == NULL) {
+                smb2_set_error(smb2, "smb2_list_shares:user not specified");
+                return -1;
+        }
+
+        if (shares == NULL || numshares == NULL) {
+                smb2_set_error(smb2, "smb2_list_shares:No memory allocated for share listing");
+                return -1;
+        }
+
+        smb2->use_cached_creds = 1;
+	    if (smb2_connect_share(smb2, server, "IPC$", user) !=0) {
+		        smb2_set_error(smb2, "smb2_connect_share_async failed. %s",
+                                      smb2_get_error(smb2));
+		        return -ENOMEM;
+	    }
+sleep(10);
+        fh = smb2_open(smb2, "srvsvc", 02);
+        if (fh == NULL) {
+                smb2_set_error(smb2, "smb2_list_shares: failed to open SRVSVC pipe: %s", smb2_get_error(smb2));
+                return -1;
+        }
+
+        smb2_disconnect_share(smb2);
+        return status;
 }
 
