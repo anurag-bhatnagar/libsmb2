@@ -14,38 +14,10 @@
 extern "C" {
 #endif
 
+#include "portable-endian.h"
+
 #include <stdint.h>
 #include <string.h>
-
-#ifdef __linux__
-#ifndef __KERNEL__
-#include <endian.h>
-#else
-#include <asm/byteorder.h>
-#endif
-#endif
-
-#ifdef __FreeBSD__
-#include <sys/endian.h>
-#endif
-
-#if defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN
-# define R_ENDIAN_LITTLE
-#elif defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN
-# define R_ENDIAN_BIG
-#elif defined(_BYTE_ORDER) && _BYTE_ORDER == _LITTLE_ENDIAN
-# define R_ENDIAN_LITTLE
-#elif defined(_BYTE_ORDER) && _BYTE_ORDER == _BIG_ENDIAN
-# define R_ENDIAN_BIG
-#elif defined(__LITTLE_ENDIAN) && !defined(__BIG_ENDIAN)
-# define R_ENDIAN_LITTLE
-#elif !defined(__LITTLE_ENDIAN) && defined(__BIG_ENDIAN)
-# define R_ENDIAN_BIG
-#endif
-
-#if !defined(R_ENDIAN_BIG) && !defined(R_ENDIAN_LITTLE)
-  #error "Endian macro undefined"
-#endif
 
 /* MACRO definitions */
 #define RPC_BYTE_ORDER_LE			0x10
@@ -109,39 +81,6 @@ struct dcerpc_header
 		uint16_t             opnum;     /* doubles as cancel count in reply */
 } __attribute__((packed));
 
-/* RPC contexts*/
-#define CONTEXT_ID_NUMBER	0
-#define INTERFACE_VERSION_MAJOR	3
-#define INTERFACE_VERSION_MINOR	0
-
-#define TRANSFER_SYNTAX_VERSION_MAJOR	2
-#define TRANSFER_SYNTAX_VERSION_MINOR	0
-
-struct context_uuid
-{
-    uint32_t           a;
-    uint16_t           b;
-    uint16_t           c;
-    uint8_t            d[8];
-} __attribute__((packed));
-
-union uuid {
-	uint8_t id[16];
-	struct context_uuid s_id;
-};
-
-struct context_item
-{
-		uint16_t context_id;
-		uint16_t num_trans_items;
-		uint8_t interface_uuid[16];
-		uint16_t interface_version_major;
-		uint16_t interface_version_minor;
-		uint8_t transfer_syntax[16];
-		uint16_t syntax_version_major;
-		uint16_t syntax_version_minor;
-} __attribute__((packed));
-
 #define RPC_REASON_NOT_SPECIFIED			0
 #define RPC_REASON_TEMPORARY_CONGESTION		1
 #define RPC_REASON_LOCAL_LIMIT_EXCEEDED		2
@@ -185,6 +124,45 @@ uint8_t get_byte_order_dr(struct rpc_data_representation data);
 uint8_t get_byte_order_hdr(struct rpc_header hdr);
 uint8_t get_byte_order_dcehdr(struct dcerpc_header dce_hdr);
 
+void init_rpc_data_representation(struct rpc_data_representation *data);
+void init_rpc_header(struct rpc_header *hdr);
+void init_rpc_bind_request(struct rpc_bind_request *bnd);
+void init_dcerpc_header(struct dcerpc_header *dcehdr, uint16_t opnum, size_t dcerpc_payload_size);
+
+void dcerpc_create_bind_req(struct rpc_bind_request *bnd, int num_context_items);
+
+/* RPC contexts*/
+#define INTERFACE_VERSION_MAJOR	3
+#define INTERFACE_VERSION_MINOR	0
+
+#define TRANSFER_SYNTAX_VERSION_MAJOR	2
+#define TRANSFER_SYNTAX_VERSION_MINOR	0
+
+struct context_uuid
+{
+    uint32_t           a;
+    uint16_t           b;
+    uint16_t           c;
+    uint8_t            d[8];
+} __attribute__((packed));
+
+union uuid {
+	uint8_t id[16];
+	struct context_uuid s_id;
+};
+
+struct context_item
+{
+		uint16_t  context_id;
+		uint16_t  num_trans_items;
+		uint8_t   interface_uuid[16];
+		uint16_t  interface_version_major;
+		uint16_t  interface_version_minor;
+		uint8_t   transfer_syntax[16];
+		uint16_t  syntax_version_major;
+		uint16_t  syntax_version_minor;
+} __attribute__((packed));
+
 void set_context_uuid(struct context_uuid *ctx,
                       uint8_t  byte_order,
                       uint32_t a,
@@ -193,10 +171,13 @@ void set_context_uuid(struct context_uuid *ctx,
                       const uint8_t d[8]
                      );
 
-void init_rpc_data_representation(struct rpc_data_representation *data);
-void init_rpc_header(struct rpc_header *hdr);
-void init_rpc_bind_request(struct rpc_bind_request *bnd);
-void init_dcerpc_header(struct dcerpc_header *dcehdr, uint16_t opnum, size_t dcerpc_payload_size);
+void dcerpc_init_context(struct   context_item* ctx,
+                         uint8_t  byte_order,
+                         uint16_t context_id_number,
+                         uint16_t interface_version_major,
+                         uint16_t interface_version_minor,
+                         uint16_t syntax_version_major,
+                         uint16_t syntax_version_minor);
 
 #ifdef __cplusplus
 }

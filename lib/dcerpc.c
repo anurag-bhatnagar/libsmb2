@@ -136,13 +136,13 @@ void init_dcerpc_header(struct dcerpc_header *dcehdr, uint16_t opnum, size_t dce
 
 }
 
-void init_context_item(struct   context_item* ctx,
-                       uint8_t  byte_order,
-                       uint16_t context_id_number,
-                       uint16_t interface_version_major,
-                       uint16_t interface_version_minor,
-                       uint16_t syntax_version_major,
-                       uint16_t syntax_version_minor)
+void dcerpc_init_context(struct   context_item* ctx,
+                         uint8_t  byte_order,
+                         uint16_t context_id_number,
+                         uint16_t interface_version_major,
+                         uint16_t interface_version_minor,
+                         uint16_t syntax_version_major,
+                         uint16_t syntax_version_minor)
 {
 		union uuid srvsvc_id;
 		union uuid syntax_id;
@@ -163,10 +163,20 @@ void init_context_item(struct   context_item* ctx,
 
 void dcerpc_create_bind_req(struct rpc_bind_request *bnd, int num_context_items)
 {
-		init_rpc_bind_request(bnd);
-		bnd->dceRpcHdr.packet_type = RPC_PACKET_TYPE_BIND;
-		bnd->dceRpcHdr.packet_flags = RPC_FLAG_FIRST_FRAG | RPC_FLAG_LAST_FRAG;
-		bnd->dceRpcHdr.frag_length = sizeof(struct rpc_bind_request) + (num_context_items * sizeof(struct context_item));
-		bnd->dceRpcHdr.call_id = 1;
-		bnd->num_context_items = num_context_items; /* atleast one context */
+        struct context_item ctx;
+
+        init_rpc_bind_request(bnd);
+        bnd->dceRpcHdr.packet_type = RPC_PACKET_TYPE_BIND;
+        bnd->dceRpcHdr.packet_flags = RPC_FLAG_FIRST_FRAG | RPC_FLAG_LAST_FRAG;
+        bnd->dceRpcHdr.frag_length = sizeof(struct rpc_bind_request) + (num_context_items * sizeof(struct context_item));
+        bnd->dceRpcHdr.call_id = 1;
+        bnd->num_context_items = num_context_items; /* atleast one context */
+
+        dcerpc_init_context(&ctx,
+                            get_byte_order_hdr(bnd->dceRpcHdr),
+                            1,
+                            INTERFACE_VERSION_MAJOR,
+                            INTERFACE_VERSION_MINOR,
+                            TRANSFER_SYNTAX_VERSION_MAJOR,
+                            TRANSFER_SYNTAX_VERSION_MINOR);
 }

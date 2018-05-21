@@ -41,6 +41,7 @@
 #include "libsmb2.h"
 #include "libsmb2-raw.h"
 #include "libsmb2-private.h"
+#include "dcerpc.h"
 
 #include <unistd.h>
 struct sync_cb_data {
@@ -609,6 +610,11 @@ int smb2_list_shares(struct smb2_context *smb2,
 {
         int status = 0;
         struct smb2fh *fh = NULL;
+        uint8_t *write_buf = NULL;
+        uint32_t write_count = 0;
+        uint8_t read_buf[1024];
+        struct rpc_bind_request bind_req;
+        struct context_item dcerpc_ctx;
 
         if (server == NULL) {
                 smb2_set_error(smb2, "smb2_list_shares:server not specified");
@@ -637,7 +643,34 @@ int smb2_list_shares(struct smb2_context *smb2,
                 return -1;
         }
 
+        dcerpc_create_bind_req(&bind_req, 1);
+        dcerpc_init_context(&dcerpc_ctx, get_byte_order_hdr(bind_req.dceRpcHdr), 1,
+                            INTERFACE_VERSION_MAJOR,
+                            INTERFACE_VERSION_MINOR,
+                            TRANSFER_SYNTAX_VERSION_MAJOR,
+                            TRANSFER_SYNTAX_VERSION_MINOR);
+
+        write_count = sizeof(struct rpc_bind_request) + sizeof(struct context_item);
+        write_buf = (uint8_t *) malloc(write_count);
+        if (write_buf == NULL) {
+		        smb2_set_error(smb2, "failed to allocate dcerpc bind buffer");
+		        return -ENOMEM;
+        }
+        memcpy(write_buf, &bind_req, sizeof(struct rpc_bind_request));
+        memcpy(write_buf+sizeof(struct rpc_bind_request), &dcerpc_ctx, sizeof(struct context_item));
+        status = smb2_write(smb2, fh, write_buf, write_count);
+        if (status < 0) {
+		        smb2_set_error(smb2, "failed to send dcerpc bind request");
+		        return -1;
+        }
+        free(write_buf); write_buf = NULL;
+
+        status = smb2_read(smb2, fh, read_buf, 1024);
+        if (status < 0) {
+		        smb2_set_error(smb2, "dcerpc bind failed");
+		        return -1;
+        }
+
         smb2_disconnect_share(smb2);
         return status;
 }
-

@@ -105,4 +105,22 @@
 #  error platform not supported
 #endif
 
+#if defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN
+# define R_ENDIAN_LITTLE
+#elif defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN
+# define R_ENDIAN_BIG
+#elif defined(_BYTE_ORDER) && _BYTE_ORDER == _LITTLE_ENDIAN
+# define R_ENDIAN_LITTLE
+#elif defined(_BYTE_ORDER) && _BYTE_ORDER == _BIG_ENDIAN
+# define R_ENDIAN_BIG
+#elif defined(__LITTLE_ENDIAN) && !defined(__BIG_ENDIAN)
+# define R_ENDIAN_LITTLE
+#elif !defined(__LITTLE_ENDIAN) && defined(__BIG_ENDIAN)
+# define R_ENDIAN_BIG
+#endif
+
+#if !defined(R_ENDIAN_BIG) && !defined(R_ENDIAN_LITTLE)
+  #error "Endian macro undefined"
+#endif
+
 #endif
