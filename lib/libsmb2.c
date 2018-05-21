@@ -1018,6 +1018,39 @@ smb2_open_async(struct smb2_context *smb2, const char *path, int flags,
         return 0;
 }
 
+int
+smb2_open_pipe_async(struct smb2_context *smb2,
+                     struct smb2_create_request *req,
+                     smb2_command_cb cb, void *cb_data)
+{
+        struct smb2fh *fh;
+        struct smb2_pdu *pdu;
+
+        if (req == NULL) {
+                smb2_set_error(smb2, "request param not provided");
+                return -ENOMEM;
+        }
+
+        fh = malloc(sizeof(struct smb2fh));
+        if (fh == NULL) {
+                smb2_set_error(smb2, "Failed to allocate smbfh");
+                return -ENOMEM;
+        }
+        memset(fh, 0, sizeof(struct smb2fh));
+
+        fh->cb = cb;
+        fh->cb_data = cb_data;
+
+        pdu = smb2_cmd_create_async(smb2, req, open_cb, fh);
+        if (pdu == NULL) {
+                smb2_set_error(smb2, "Failed to create create command");
+                return -ENOMEM;
+        }
+        smb2_queue_pdu(smb2, pdu);
+
+        return 0;
+}
+
 static void
 close_cb(struct smb2_context *smb2, int status,
          void *command_data, void *private_data)

@@ -34,6 +34,8 @@
 
 #include <errno.h>
 #include <poll.h>
+#include <strings.h>
+#include <string.h>
 
 #include "smb2.h"
 #include "libsmb2.h"
@@ -189,6 +191,63 @@ struct smb2fh *smb2_open(struct smb2_context *smb2, const char *path, int flags)
         }
 
 	return cb_data.ptr;
+}
+
+/* open_pipe()
+ */
+struct smb2fh *smb2_open_pipe(struct smb2_context *smb2, const char *pipe)
+{
+        struct sync_cb_data cb_data;
+        struct smb2_create_request req;
+        uint32_t desired_access = 0;
+        uint32_t create_options = 0;
+        uint32_t impersonation_level = 0;
+        uint32_t share_access = 0;
+
+	    cb_data.is_finished = 0;
+
+        if (pipe == NULL) {
+		        smb2_set_error(smb2, "smb2_open_async failed");
+		        return NULL;
+        }
+
+        create_options = SMB2_FILE_OPEN_NO_RECALL | SMB2_FILE_NON_DIRECTORY_FILE;
+        desired_access |= SMB2_FILE_WRITE_DATA | SMB2_FILE_WRITE_EA | SMB2_FILE_WRITE_ATTRIBUTES;
+
+        if (strcasecmp(pipe, "srvsvc") == 0) {
+                impersonation_level = SMB2_IMPERSONATION_IMPERSONATION;
+                desired_access = 0x0012019f;
+                share_access = SMB2_FILE_SHARE_READ | SMB2_FILE_SHARE_WRITE | SMB2_FILE_SHARE_DELETE;
+        } else if (strcasecmp(pipe, "wkssvc") == 0) {
+                impersonation_level = SMB2_IMPERSONATION_IDENTIFICATION;
+                desired_access = 0x0012019f;
+                share_access = SMB2_FILE_SHARE_READ | SMB2_FILE_SHARE_WRITE | SMB2_FILE_SHARE_DELETE;
+        } else if (strcasecmp(pipe, "lsarpc") == 0) {
+                impersonation_level = SMB2_IMPERSONATION_IMPERSONATION;
+                desired_access = 0x0002019f;
+                share_access = SMB2_FILE_SHARE_READ | SMB2_FILE_SHARE_WRITE;
+                create_options = 0x00000000;
+        }
+
+        memset(&req, 0, sizeof(struct smb2_create_request));
+        req.requested_oplock_level = SMB2_OPLOCK_LEVEL_NONE;
+        req.impersonation_level = impersonation_level;
+        req.desired_access = desired_access;
+        req.share_access = share_access;
+        req.create_disposition = SMB2_FILE_OPEN;
+        req.create_options = create_options;
+        req.name = pipe;
+
+	    if (smb2_open_pipe_async(smb2, &req, open_cb, &cb_data) != 0) {
+		        smb2_set_error(smb2, "smb2_open_async failed");
+		        return NULL;
+	    }
+
+	    if (wait_for_reply(smb2, &cb_data) < 0) {
+                return NULL;
+        }
+
+	    return cb_data.ptr;
 }
 
 /*
@@ -571,8 +630,8 @@ int smb2_list_shares(struct smb2_context *smb2,
                                       smb2_get_error(smb2));
 		        return -ENOMEM;
 	    }
-sleep(10);
-        fh = smb2_open(smb2, "srvsvc", 02);
+
+        fh = smb2_open_pipe(smb2, "srvsvc");
         if (fh == NULL) {
                 smb2_set_error(smb2, "smb2_list_shares: failed to open SRVSVC pipe: %s", smb2_get_error(smb2));
                 return -1;
