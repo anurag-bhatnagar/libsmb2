@@ -116,21 +116,6 @@ struct rpc_bind_nack_response
 		uint16_t reject_reason;
 } __attribute__((packed));
 
-/* APIs */
-uint16_t swap_uint16(uint8_t byte_order, uint16_t i);
-uint32_t swap_uint32(uint8_t byte_order, uint32_t i);
-
-uint8_t get_byte_order_dr(struct rpc_data_representation data);
-uint8_t get_byte_order_hdr(struct rpc_header hdr);
-uint8_t get_byte_order_dcehdr(struct dcerpc_header dce_hdr);
-
-void init_rpc_data_representation(struct rpc_data_representation *data);
-void init_rpc_header(struct rpc_header *hdr);
-void init_rpc_bind_request(struct rpc_bind_request *bnd);
-void init_dcerpc_header(struct dcerpc_header *dcehdr, uint16_t opnum, size_t dcerpc_payload_size);
-
-void dcerpc_create_bind_req(struct rpc_bind_request *bnd, int num_context_items);
-
 /* RPC contexts*/
 #define INTERFACE_VERSION_MAJOR	3
 #define INTERFACE_VERSION_MINOR	0
@@ -163,13 +148,18 @@ struct context_item
 		uint16_t  syntax_version_minor;
 } __attribute__((packed));
 
-void set_context_uuid(struct context_uuid *ctx,
-                      uint8_t  byte_order,
-                      uint32_t a,
-                      uint16_t b,
-                      uint16_t c,
-                      const uint8_t d[8]
-                     );
+/* APIs */
+//uint16_t swap_uint16(uint8_t byte_order, uint16_t i);
+//uint32_t swap_uint32(uint8_t byte_order, uint32_t i);
+
+uint8_t get_byte_order_dr(struct rpc_data_representation data);
+uint8_t get_byte_order_hdr(struct rpc_header hdr);
+uint8_t get_byte_order_dcehdr(struct dcerpc_header dce_hdr);
+
+//void init_rpc_data_representation(struct rpc_data_representation *data);
+//void init_rpc_header(struct rpc_header *hdr);
+//void init_rpc_bind_request(struct rpc_bind_request *bnd);
+//void init_dcerpc_header(struct dcerpc_header *dcehdr, uint16_t opnum, size_t dcerpc_payload_size);
 
 void dcerpc_init_context(struct   context_item* ctx,
                          uint8_t  byte_order,
@@ -178,6 +168,26 @@ void dcerpc_init_context(struct   context_item* ctx,
                          uint16_t interface_version_minor,
                          uint16_t syntax_version_major,
                          uint16_t syntax_version_minor);
+
+void
+dcerpc_create_bind_req(struct rpc_bind_request *bnd,
+                       int num_context_items);
+int
+dcerpc_get_response_header(uint8_t *buf,
+                           uint32_t buf_len,
+                           struct rpc_header *dceRpcHdr);
+int
+dcerpc_get_bind_ack_response(uint8_t *buf,
+                             uint32_t buf_len,
+                             struct rpc_bind_response *rsp);
+
+int
+dcerpc_get_bind_nack_response(uint8_t *buf,
+                              uint32_t buf_len,
+                              struct rpc_bind_nack_response *rsp);
+
+const char *
+dcerpc_get_reject_reason(uint16_t reason);
 
 #ifdef __cplusplus
 }

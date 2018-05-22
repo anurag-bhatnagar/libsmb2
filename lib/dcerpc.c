@@ -163,20 +163,84 @@ void dcerpc_init_context(struct   context_item* ctx,
 
 void dcerpc_create_bind_req(struct rpc_bind_request *bnd, int num_context_items)
 {
-        struct context_item ctx;
-
         init_rpc_bind_request(bnd);
         bnd->dceRpcHdr.packet_type = RPC_PACKET_TYPE_BIND;
         bnd->dceRpcHdr.packet_flags = RPC_FLAG_FIRST_FRAG | RPC_FLAG_LAST_FRAG;
         bnd->dceRpcHdr.frag_length = sizeof(struct rpc_bind_request) + (num_context_items * sizeof(struct context_item));
         bnd->dceRpcHdr.call_id = 1;
         bnd->num_context_items = num_context_items; /* atleast one context */
+}
 
-        dcerpc_init_context(&ctx,
-                            get_byte_order_hdr(bnd->dceRpcHdr),
-                            1,
-                            INTERFACE_VERSION_MAJOR,
-                            INTERFACE_VERSION_MINOR,
-                            TRANSFER_SYNTAX_VERSION_MAJOR,
-                            TRANSFER_SYNTAX_VERSION_MINOR);
+int
+dcerpc_get_response_header(uint8_t *buf,
+                           uint32_t buf_len,
+                           struct rpc_header *hdr)
+{
+        if (buf == NULL|| hdr == NULL) {
+                return -1;
+        }
+        if (buf_len < sizeof(struct rpc_header)) {
+                return -1;
+        }
+        memcpy(hdr, buf, sizeof(struct rpc_header));
+        return 0;
+}
+
+int
+dcerpc_get_bind_ack_response(uint8_t *buf, uint32_t buf_len,
+                             struct rpc_bind_response *rsp)
+{
+        if (buf == NULL|| rsp == NULL) {
+                return -1;
+        }
+        if (buf_len < sizeof(struct rpc_bind_response)) {
+                return -1;
+        }
+        memcpy(rsp, buf, sizeof(struct rpc_bind_response));
+        return 0;
+}
+
+int
+dcerpc_get_bind_nack_response(uint8_t *buf,
+                              uint32_t buf_len,
+                              struct rpc_bind_nack_response *rsp)
+{
+        if (buf == NULL|| rsp == NULL) {
+                return -1;
+        }
+        if (buf_len < sizeof(struct rpc_bind_nack_response)) {
+                return -1;
+        }
+        memcpy(rsp, buf, sizeof(struct rpc_bind_nack_response));
+        return 0;
+}
+
+const char *
+dcerpc_get_reject_reason(uint16_t reason)
+{
+        switch (reason)
+        {
+                case RPC_REASON_NOT_SPECIFIED:
+                        return "Reason not specified";
+                case RPC_REASON_TEMPORARY_CONGESTION:
+                        return "Temporary congestion";
+                case RPC_REASON_LOCAL_LIMIT_EXCEEDED:
+                        return "Local limit exceeded";
+                case RPC_REASON_CALLED_PADDR_UNKNOWN:
+                        return "Called paddr unknown";
+                case RPC_REASON_BAD_PROTOCOL_VERSION:
+                        return "Protocol version not supported";
+                case RPC_REASON_DEFAULT_CTX_UNSUPPORTED:
+                        return "Default context not supported";
+                case RPC_REASON_USER_DATA_UNREADABLE:
+                        return "User data not readable";
+                case RPC_REASON_NO_PSAP_AVAILABLE:
+                        return "No PSAP available";
+                case RPC_REASON_AUTH_TYPE_NOT_RECOGNIZED:
+                        return "Authentication type not recognized";
+                case RPC_REASON_INVALID_CHECKSUM:
+                        return "Invalid checksum";
+                default: break;
+        }
+        return "UNKNOWN Reject Reason";
 }

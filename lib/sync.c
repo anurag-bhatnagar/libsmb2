@@ -616,6 +616,13 @@ int smb2_list_shares(struct smb2_context *smb2,
         struct rpc_bind_request bind_req;
         struct context_item dcerpc_ctx;
 
+        struct rpc_header rsp_hdr;
+        struct rpc_bind_response ack;
+        struct rpc_bind_nack_response nack;
+
+        uint16_t max_xmit_frag;
+        uint16_t max_recv_frag;
+
         if (server == NULL) {
                 smb2_set_error(smb2, "smb2_list_shares:server not specified");
                 return -1;
@@ -671,6 +678,33 @@ int smb2_list_shares(struct smb2_context *smb2,
 		        return -1;
         }
 
+        if (dcerpc_get_response_header(read_buf, status, &rsp_hdr) < 0) {
+		        smb2_set_error(smb2, "failed to parse dcerpc response header");
+		        return -1;
+        }
+
+        if (rsp_hdr.packet_type == RPC_PACKET_TYPE_BINDNACK) {
+                if (dcerpc_get_bind_nack_response(read_buf, status, &nack) < 0) {
+		                smb2_set_error(smb2, "failed to parse dcerpc BINDNACK response");
+                        return -1;
+                }
+                smb2_set_error(smb2, "dcerpc BINDNACK reason : %s", dcerpc_get_reject_reason(nack.reject_reason));
+                return -1;
+        } else if (rsp_hdr.packet_type == RPC_PACKET_TYPE_BINDACK) {
+                if (dcerpc_get_bind_ack_response(read_buf, status, &ack) < 0) {
+		                smb2_set_error(smb2, "failed to parse dcerpc BINDACK response");
+                        return -1;
+                }
+                /* save the max xmit and recv frag details */
+                max_xmit_frag = ack.max_xmit_frag;
+                max_recv_frag = ack.max_recv_frag;
+max_xmit_frag = max_xmit_frag +1; // sarat remove this line
+max_recv_frag = max_recv_frag +1; // sarat remove this line
+        }
+
+
+        /* close the pipe  & disconnect */
+        smb2_close(smb2, fh);
         smb2_disconnect_share(smb2);
         return status;
 }
