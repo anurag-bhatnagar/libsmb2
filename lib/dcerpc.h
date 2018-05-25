@@ -18,6 +18,7 @@ extern "C" {
 
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 
 /* MACRO definitions */
 #define RPC_BYTE_ORDER_LE			0x10
@@ -70,15 +71,6 @@ struct rpc_header
 		uint16_t auth_length;
 		/* Incremental sequent numbers. Used to match up responses and requests. */
 		uint32_t call_id;
-} __attribute__((packed));
-
-/* To be sent and received as part of SMB Transact and/or SMB2_IOCTL */
-struct dcerpc_header
-{
-		struct rpc_header    rpc_header;
-		uint32_t             alloc_hint;
-		uint16_t             context_id;
-		uint16_t             opnum;     /* doubles as cancel count in reply */
 } __attribute__((packed));
 
 #define RPC_REASON_NOT_SPECIFIED			0
@@ -149,17 +141,10 @@ struct context_item
 } __attribute__((packed));
 
 /* APIs */
-//uint16_t swap_uint16(uint8_t byte_order, uint16_t i);
-//uint32_t swap_uint32(uint8_t byte_order, uint32_t i);
+void dcerpc_reset_callid(void);
 
 uint8_t get_byte_order_dr(struct rpc_data_representation data);
 uint8_t get_byte_order_hdr(struct rpc_header hdr);
-uint8_t get_byte_order_dcehdr(struct dcerpc_header dce_hdr);
-
-//void init_rpc_data_representation(struct rpc_data_representation *data);
-//void init_rpc_header(struct rpc_header *hdr);
-//void init_rpc_bind_request(struct rpc_bind_request *bnd);
-//void init_dcerpc_header(struct dcerpc_header *dcehdr, uint16_t opnum, size_t dcerpc_payload_size);
 
 void dcerpc_init_context(struct   context_item* ctx,
                          uint8_t  byte_order,
@@ -189,6 +174,71 @@ dcerpc_get_bind_nack_response(uint8_t *buf,
 const char *
 dcerpc_get_reject_reason(uint16_t reason);
 
+/************************ SRVSVC ************************/
+struct stringValue
+{
+        /* Maximum length of this string */
+        uint32_t max_length;
+        /* Offset to this string relative to (char*)(&length + 1) */
+        uint32_t offset;
+        /* length of string (including the null terminator) */
+        uint32_t length;
+} __attribute__((packed));
+
+struct serverName
+{
+        uint32_t referent_id;
+        struct stringValue server;
+} __attribute__((packed));
+
+struct ShareInfo1
+{
+        uint32_t name_referent_id;
+        uint32_t type;
+        uint32_t remark_referent_id;
+} __attribute__((packed));
+
+struct ShareInfo2
+{
+        uint32_t name_referent_id;
+        uint32_t type;
+        uint32_t remark_referent_id;
+        uint32_t permissions;
+        uint32_t max_uses;
+        uint32_t current_uses;
+        uint32_t path_referent_id;
+        uint32_t passwd_referent_id;
+} __attribute__((packed));
+
+struct SharesDef
+{
+        uint32_t info_level;
+        uint32_t switch_value;
+        uint32_t referent_id;
+        uint32_t num_entries;
+        uint32_t array_referent_id;
+} __attribute__((packed));
+
+struct NetrShareEnumRequest
+{
+        struct rpc_header dceRpcHdr;
+        uint32_t alloc_hint;
+        uint16_t context_id;
+        uint16_t opnum;
+} __attribute__((packed));
+
+struct NetrShareEnumResponse
+{
+        struct rpc_header dceRpcHdr;
+        uint32_t alloc_hint;
+        uint16_t context_id;
+        uint8_t cancel_count;
+        uint8_t padding;
+} __attribute__((packed));
+
+void
+dcerpc_create_NetrShareEnumRequest(struct NetrShareEnumRequest *netr_req,
+                                   uint16_t payload_size);
 #ifdef __cplusplus
 }
 #endif

@@ -1,6 +1,8 @@
 #include "dcerpc.h"
 
 
+static uint64_t global_call_id = 1;
+
 #define SRVSVC_UUID_A	0x4b324fc8
 #define SRVSVC_UUID_B	0x1670
 #define SRVSVC_UUID_C	0x01d3
@@ -57,6 +59,12 @@ uint32_t swap_uint32(uint8_t byte_order, uint32_t i)
 #endif
 }
 
+void
+dcerpc_reset_callid(void)
+{
+        global_call_id = 1;
+}
+
 uint8_t get_byte_order_dr(struct rpc_data_representation data)
 {
 		return data.byte_order;
@@ -65,11 +73,6 @@ uint8_t get_byte_order_dr(struct rpc_data_representation data)
 uint8_t get_byte_order_hdr(struct rpc_header hdr)
 {
         return hdr.data_rep.byte_order;
-}
-
-uint8_t get_byte_order_dcehdr(struct dcerpc_header dce_hdr)
-{
-        return dce_hdr.rpc_header.data_rep.byte_order;
 }
 
 void set_context_uuid(struct context_uuid *ctx,
@@ -121,21 +124,6 @@ void init_rpc_bind_request(struct rpc_bind_request *bnd)
 		memset(bnd->padding, 0, sizeof(bnd->padding));
 }
 
-void init_dcerpc_header(struct dcerpc_header *dcehdr, uint16_t opnum, size_t dcerpc_payload_size)
-{
-
-		init_rpc_header(&dcehdr->rpc_header);
-		dcehdr->rpc_header.packet_type = RPC_PACKET_TYPE_REQUEST;
-		dcehdr->rpc_header.packet_flags = RPC_FLAG_FIRST_FRAG | RPC_FLAG_LAST_FRAG;
-		dcehdr->rpc_header.frag_length = sizeof(struct dcerpc_header) + dcerpc_payload_size;
-		dcehdr->rpc_header.call_id = 1;
-
-		dcehdr->alloc_hint = dcerpc_payload_size;
-		dcehdr->context_id = 0;
-		dcehdr->opnum = opnum;
-
-}
-
 void dcerpc_init_context(struct   context_item* ctx,
                          uint8_t  byte_order,
                          uint16_t context_id_number,
@@ -167,7 +155,7 @@ void dcerpc_create_bind_req(struct rpc_bind_request *bnd, int num_context_items)
         bnd->dceRpcHdr.packet_type = RPC_PACKET_TYPE_BIND;
         bnd->dceRpcHdr.packet_flags = RPC_FLAG_FIRST_FRAG | RPC_FLAG_LAST_FRAG;
         bnd->dceRpcHdr.frag_length = sizeof(struct rpc_bind_request) + (num_context_items * sizeof(struct context_item));
-        bnd->dceRpcHdr.call_id = 1;
+        bnd->dceRpcHdr.call_id = global_call_id++;
         bnd->num_context_items = num_context_items; /* atleast one context */
 }
 
@@ -243,4 +231,77 @@ dcerpc_get_reject_reason(uint16_t reason)
                 default: break;
         }
         return "UNKNOWN Reject Reason";
+}
+
+/******************************** SRVSVC ********************************/
+static void
+dcerpc_init_NetrShareEnumRequest(struct NetrShareEnumRequest *netr_req)
+{
+        init_rpc_header(&(netr_req->dceRpcHdr));
+        netr_req->alloc_hint = 0;
+        netr_req->context_id = 0;
+        /* OPNUM - 15 must be translated */
+        netr_req->opnum = swap_uint16(get_byte_order_hdr(netr_req->dceRpcHdr), 15);
+}
+
+void
+dcerpc_create_NetrShareEnumRequest(struct NetrShareEnumRequest *netr_req,
+                                   uint16_t payload_size)
+{
+        dcerpc_init_NetrShareEnumRequest(netr_req);
+        netr_req->dceRpcHdr.packet_type  = RPC_PACKET_TYPE_REQUEST;
+        netr_req->dceRpcHdr.packet_flags = RPC_FLAG_FIRST_FRAG | RPC_FLAG_LAST_FRAG;
+        netr_req->dceRpcHdr.frag_length  =  sizeof(struct NetrShareEnumRequest) + payload_size;
+        netr_req->dceRpcHdr.call_id      =  global_call_id++;
+
+        netr_req->alloc_hint             =  payload_size; // add +2
+}
+
+void
+dcerpc_init_stringValue(char     *string,
+                        struct   stringValue *stringVal,
+                        wchar_t  **buf,
+                        uint32_t *buf_len)
+{
+        uint32_t len = strlen(string)+1;
+
+        stringVal->max_length = swap_uint32(RPC_BYTE_ORDER_LE, len);
+        stringVal->offset     = 0;
+        stringVal->length     = stringVal->max_length;
+
+        *buf_len = len * 2;
+        *buf = (wchar_t *) malloc (*buf_len + 2);
+        memset(buf, 0, (*buf_len+2));
+        mbstowcs(*buf, string, (*buf_len+2));
+}
+
+void dcerpc_init_serverName(uint32_t refid,
+                            char     *name,
+                            struct   serverName *srv,
+                            wchar_t  **buf,
+                            uint32_t *buf_len)
+{
+        srv->referent_id = swap_uint32(RPC_BYTE_ORDER_LE, refid);
+        dcerpc_init_stringValue(name, &srv->server, buf, buf_len);
+}
+
+void
+dcerpc_init_InfoStruct(void)
+{
+}
+
+int
+dcerpc_create_NetrShareEnumRequest_payload(/*IN*/char      *server_name,
+                                           /*OUT*/uint8_t  **buffer,
+                                           /*OUT*/uint32_t *buffer_len)
+{
+        uint8_t *payload = NULL;
+        struct serverName srv;
+        wchar_t *name_buf = NULL; /* to be freed here */
+        uint32_t name_buf_len = 0;
+
+        dcerpc_init_serverName(0x0026e53c, server_name, &srv, &name_buf, &name_buf_len);
+        /* if sizeof(struct serverName) + name_buf_len is not 8 byte multiple then add padding*/
+
+        return 0;
 }

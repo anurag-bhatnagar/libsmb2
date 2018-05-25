@@ -623,6 +623,8 @@ int smb2_list_shares(struct smb2_context *smb2,
         uint16_t max_xmit_frag;
         uint16_t max_recv_frag;
 
+        char *serverName = NULL;
+
         if (server == NULL) {
                 smb2_set_error(smb2, "smb2_list_shares:server not specified");
                 return -1;
@@ -702,7 +704,12 @@ max_xmit_frag = max_xmit_frag +1; // sarat remove this line
 max_recv_frag = max_recv_frag +1; // sarat remove this line
         }
 
+        if (asprintf(&serverName, "\\\\%s", server) < 0) {
+		        smb2_set_error(smb2, "Failed to create NetrShareEnum request");
+                return -1;
+        }
 
+        free(serverName); serverName = NULL;
         /* close the pipe  & disconnect */
         smb2_close(smb2, fh);
         smb2_disconnect_share(smb2);
