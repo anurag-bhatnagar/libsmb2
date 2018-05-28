@@ -18,13 +18,13 @@ uint16_t swap_uint16(uint8_t byte_order, uint16_t i)
         switch (byte_order)
 		{
 				case RPC_BYTE_ORDER_LE: return i;
-				case RPC_BYTE_ORDER_BE: return (0xff & i) << 8 | (i >> 8);
+				case RPC_BYTE_ORDER_BE: return __bswap_16(i);
 				default: return i;
 		}
 #else
 		switch (byte_order)
 		{
-				case RPC_BYTE_ORDER_LE: return (0xff & i) << 8 | (i >> 8);
+				case RPC_BYTE_ORDER_LE: return __bswap_16(i);
 				case RPC_BYTE_ORDER_BE: return i;
 				default: return i;
 		}
@@ -37,21 +37,32 @@ uint32_t swap_uint32(uint8_t byte_order, uint32_t i)
         switch (byte_order)
 		{
 				case RPC_BYTE_ORDER_LE: return i;
-				case RPC_BYTE_ORDER_BE:
-				        return ((0x000000ff & (i >> 24)) |
-                               (0x0000ff00 & (i >>  8)) |
-                               (0x00ff0000 & (i <<  8)) |
-                               (0xff000000 & (i << 24)));
+				case RPC_BYTE_ORDER_BE: return __bswap_32(i);
 				default: return i;
 		}
 #else
 		switch (byte_order)
 		{
-				case RPC_BYTE_ORDER_LE:
-						return ((0x000000ff & (i >> 24)) |
-                               (0x0000ff00 & (i >>  8)) |
-                               (0x00ff0000 & (i <<  8)) |
-                               (0xff000000 & (i << 24)));
+				case RPC_BYTE_ORDER_LE: return __bswap_32(i);
+				case RPC_BYTE_ORDER_BE: return i;
+				default: return i;
+    }
+#endif
+}
+
+uint64_t swap_uint64(uint8_t byte_order, uint64_t i)
+{
+#ifdef R_ENDIAN_LITTLE
+        switch (byte_order)
+		{
+				case RPC_BYTE_ORDER_LE: return i;
+				case RPC_BYTE_ORDER_BE: return __bswap_64(i);
+				default: return i;
+		}
+#else
+		switch (byte_order)
+		{
+				case RPC_BYTE_ORDER_LE: return __bswap_64(i);
 				case RPC_BYTE_ORDER_BE: return i;
 				default: return i;
     }
