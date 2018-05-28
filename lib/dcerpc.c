@@ -1,6 +1,5 @@
 #include "dcerpc.h"
 
-
 static uint64_t global_call_id = 1;
 
 #define SRVSVC_UUID_A	0x4b324fc8
@@ -244,9 +243,9 @@ dcerpc_init_NetrShareEnumRequest(struct NetrShareEnumRequest *netr_req)
         netr_req->opnum = swap_uint16(get_byte_order_hdr(netr_req->dceRpcHdr), 15);
 }
 
-void
+int
 dcerpc_create_NetrShareEnumRequest(struct NetrShareEnumRequest *netr_req,
-                                   uint16_t payload_size)
+                                   uint32_t payload_size)
 {
         dcerpc_init_NetrShareEnumRequest(netr_req);
         netr_req->dceRpcHdr.packet_type  = RPC_PACKET_TYPE_REQUEST;
@@ -254,54 +253,135 @@ dcerpc_create_NetrShareEnumRequest(struct NetrShareEnumRequest *netr_req,
         netr_req->dceRpcHdr.frag_length  =  sizeof(struct NetrShareEnumRequest) + payload_size;
         netr_req->dceRpcHdr.call_id      =  global_call_id++;
 
-        netr_req->alloc_hint             =  payload_size; // add +2
+        netr_req->alloc_hint             =  payload_size + 2; // add +2
+        return 0;
 }
 
-void
+static void
 dcerpc_init_stringValue(char     *string,
                         struct   stringValue *stringVal,
                         wchar_t  **buf,
                         uint32_t *buf_len)
 {
+        wchar_t *nmbuf = NULL;
+        uint32_t nmlen = 0;
         uint32_t len = strlen(string)+1;
 
         stringVal->max_length = swap_uint32(RPC_BYTE_ORDER_LE, len);
         stringVal->offset     = 0;
         stringVal->length     = stringVal->max_length;
 
-        *buf_len = len * 2;
-        *buf = (wchar_t *) malloc (*buf_len + 2);
-        memset(buf, 0, (*buf_len+2));
-        mbstowcs(*buf, string, (*buf_len+2));
+        nmlen = len * 2;
+        nmbuf = (wchar_t *) malloc (nmlen);
+        memset(nmbuf, 0, nmlen);
+        mbstowcs(nmbuf, string, nmlen);
+
+        *buf = nmbuf;
+        *buf_len = nmlen;
 }
 
-void dcerpc_init_serverName(uint32_t refid,
-                            char     *name,
-                            struct   serverName *srv,
-                            wchar_t  **buf,
-                            uint32_t *buf_len)
+static void
+dcerpc_init_serverName(uint32_t refid,
+                       char     *name,
+                       struct   serverName *srv,
+                       wchar_t  **buf,
+                       uint32_t *buf_len)
 {
         srv->referent_id = swap_uint32(RPC_BYTE_ORDER_LE, refid);
         dcerpc_init_stringValue(name, &srv->server, buf, buf_len);
 }
 
-void
-dcerpc_init_InfoStruct(void)
+static void
+dcerpc_init_InfoStruct(uint32_t infolevel, uint32_t id,
+                       uint32_t entries, uint32_t arrayId,
+                       struct InfoStruct *info)
 {
+        info->info_level   = swap_uint32(RPC_BYTE_ORDER_LE, infolevel);
+        info->switch_value = info->info_level;
+        info->referent_id  = swap_uint32(RPC_BYTE_ORDER_LE, id);
+        info->num_entries  = swap_uint32(RPC_BYTE_ORDER_LE, entries);
+        info->array_referent_id = swap_uint32(RPC_BYTE_ORDER_LE, arrayId);
+        // TODO sarat : what is this SharesDef::setMaxCount doing ??
 }
 
 int
 dcerpc_create_NetrShareEnumRequest_payload(/*IN*/char      *server_name,
+                                           /*IN*/uint32_t  resumeHandlePtr,
+                                           /*IN*/uint32_t  resumeHandle,
                                            /*OUT*/uint8_t  **buffer,
                                            /*OUT*/uint32_t *buffer_len)
 {
-        uint8_t *payload = NULL;
-        struct serverName srv;
-        wchar_t *name_buf = NULL; /* to be freed here */
-        uint32_t name_buf_len = 0;
+        uint8_t   *payload = NULL;
+        uint32_t  payloadlen = 0;
+        uint32_t  offset = 0;
+        struct    serverName srv;
+        uint32_t  name_struct_len = 0;
+        wchar_t   *name_buf = NULL; /* to be freed here */
+        uint32_t  name_buf_len = 0;
+        int       padlen = 0;
+        uint8_t   zero_bytes[7] = {0};
+        struct    InfoStruct info_struct;
+        uint32_t  preferred_max_length = 0xffffffff;
+
+        uint32_t resumeHandlePtr_odr = 0;
+        uint32_t resumeHandle_odr = 0;
+
+        name_struct_len = (uint32_t) sizeof(struct serverName);
 
         dcerpc_init_serverName(0x0026e53c, server_name, &srv, &name_buf, &name_buf_len);
-        /* if sizeof(struct serverName) + name_buf_len is not 8 byte multiple then add padding*/
+
+        /* padding of 0 or more bytes are needed after the name buf */
+        if (((name_struct_len+ name_buf_len) & 0x07) != 0) {
+                padlen = (8 - ((name_struct_len + name_buf_len) & 0x07));
+        }
+        payload = (uint8_t *) malloc(name_struct_len + name_buf_len + padlen);
+        if (payload == NULL) {
+                free(name_buf); name_buf = NULL;
+                return -1;
+        }
+
+        memcpy(payload, &srv, name_struct_len);
+        offset += name_struct_len;
+        memcpy(payload+offset, name_buf, name_buf_len);
+        offset += name_buf_len;
+        if (padlen) {
+                memcpy(payload+offset, zero_bytes, padlen);
+                offset += padlen;
+        }
+
+        //free(name_buf); name_buf = NULL; // TODO sarat crashes with this line
+        dcerpc_init_InfoStruct(2, 0x01fbf3e8, 0, 0, &info_struct);
+
+        payloadlen = offset + sizeof(struct InfoStruct)
+                      + sizeof(preferred_max_length)
+                      + sizeof(resumeHandlePtr);
+        if (resumeHandlePtr)
+                payloadlen += sizeof(resumeHandle);
+
+        payload = (uint8_t *)realloc(payload, payloadlen);
+        if (payload == NULL) {
+                return -1;
+        }
+
+        memcpy(payload+offset, &info_struct, sizeof(struct InfoStruct));
+        offset += sizeof(struct InfoStruct);
+
+        preferred_max_length = swap_uint32(RPC_BYTE_ORDER_LE, preferred_max_length);
+        memcpy(payload+offset, &preferred_max_length, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
+
+        resumeHandlePtr_odr = swap_uint32(RPC_BYTE_ORDER_LE, resumeHandlePtr);
+        memcpy(payload+offset, &resumeHandlePtr_odr, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
+
+        if (resumeHandlePtr) {
+                resumeHandle_odr = swap_uint32(RPC_BYTE_ORDER_LE, resumeHandle);
+                memcpy(payload+offset, &resumeHandle_odr, sizeof(uint32_t));
+                offset += sizeof(uint32_t);
+        }
+
+        *buffer = payload;
+        *buffer_len = payloadlen;
 
         return 0;
 }

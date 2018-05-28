@@ -210,7 +210,7 @@ struct ShareInfo2
         uint32_t passwd_referent_id;
 } __attribute__((packed));
 
-struct SharesDef
+struct InfoStruct
 {
         uint32_t info_level;
         uint32_t switch_value;
@@ -236,9 +236,16 @@ struct NetrShareEnumResponse
         uint8_t padding;
 } __attribute__((packed));
 
-void
+int
 dcerpc_create_NetrShareEnumRequest(struct NetrShareEnumRequest *netr_req,
-                                   uint16_t payload_size);
+                                   uint32_t payload_size);
+int
+dcerpc_create_NetrShareEnumRequest_payload(/*IN*/char      *server_name,
+                                           /*IN*/uint32_t  resumeHandlePtr,
+                                           /*IN*/uint32_t  resumeHandle,
+                                           /*OUT*/uint8_t  **buffer,
+                                           /*OUT*/uint32_t *buffer_len);
+
 #ifdef __cplusplus
 }
 #endif

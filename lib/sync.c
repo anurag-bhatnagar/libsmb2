@@ -620,8 +620,8 @@ int smb2_list_shares(struct smb2_context *smb2,
         struct rpc_bind_response ack;
         struct rpc_bind_nack_response nack;
 
-        uint16_t max_xmit_frag;
-        uint16_t max_recv_frag;
+        //uint16_t max_xmit_frag;
+        //uint16_t max_recv_frag;
 
         char *serverName = NULL;
 
@@ -698,15 +698,45 @@ int smb2_list_shares(struct smb2_context *smb2,
                         return -1;
                 }
                 /* save the max xmit and recv frag details */
-                max_xmit_frag = ack.max_xmit_frag;
-                max_recv_frag = ack.max_recv_frag;
-max_xmit_frag = max_xmit_frag +1; // sarat remove this line
-max_recv_frag = max_recv_frag +1; // sarat remove this line
+                //max_xmit_frag = ack.max_xmit_frag;
+                //max_recv_frag = ack.max_recv_frag;
         }
 
         if (asprintf(&serverName, "\\\\%s", server) < 0) {
 		        smb2_set_error(smb2, "Failed to create NetrShareEnum request");
                 return -1;
+        }
+
+        {
+                /* we need to do this in  loop till we get all shares */
+                uint32_t resumeHandlePtr = 0;
+                uint32_t enumHandle = 0;
+                uint8_t *srvsvc_buf = NULL;
+                uint32_t srvsvc_len = 0;
+                struct NetrShareEnumRequest srvsvc_dce;
+                uint32_t srvsvc_dce_len = 0;
+                uint8_t *dcebuf = NULL;
+                uint32_t dcebuf_len = 0;
+
+                srvsvc_dce_len = sizeof(struct NetrShareEnumRequest);
+
+                dcerpc_create_NetrShareEnumRequest_payload(
+                                            serverName,
+                                            resumeHandlePtr,
+                                            enumHandle,
+                                            &srvsvc_buf,
+                                            &srvsvc_len);
+
+                dcerpc_create_NetrShareEnumRequest(&srvsvc_dce, srvsvc_len);
+
+                dcebuf_len = srvsvc_dce_len + srvsvc_len;
+                dcebuf = (uint8_t *)malloc(dcebuf_len);
+                memcpy(dcebuf, &srvsvc_dce, srvsvc_dce_len);
+                memcpy(dcebuf+srvsvc_dce_len, srvsvc_buf, srvsvc_len);
+                free(srvsvc_buf);srvsvc_buf=NULL;
+                memset(&srvsvc_dce, 0, srvsvc_dce_len);
+
+status = smb2_write(smb2, fh, dcebuf, dcebuf_len);
         }
 
         free(serverName); serverName = NULL;
