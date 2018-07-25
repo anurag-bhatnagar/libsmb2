@@ -42,8 +42,8 @@ int main(int argc, char *argv[])
         struct smb2_shareinfo *shares = NULL;
         int numshares = 0;
 
-        const char *server = "10.31.209.199";
-        const char *user   = "shawr3";
+        const char *server = "10.31.208.121";
+        const char *user   = "administrator";
 
         if (argc < 2) {
                 usage();
@@ -56,8 +56,8 @@ int main(int argc, char *argv[])
         }
 
         smb2_set_security_mode(smb2, SMB2_NEGOTIATE_SIGNING_ENABLED);
-        smb2_set_password(smb2, "Rain@123");
-        smb2_set_domain(smb2, "CTADEV.LOCAL");
+        smb2_set_password(smb2, "rain@123");
+        smb2_set_domain(smb2, "CTADEV.IN.PRV");
 
         if (smb2_list_shares(smb2,
                              server,

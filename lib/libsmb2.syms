@@ -76,6 +76,8 @@ smb2_write
 smb2_write_async
 smb2_echo
 smb2_echo_async
+smb2_ioctl
+smb2_ioctl_async
 smb2_open_pipe
 smb2_open_pipe_async
 smb2_list_shares

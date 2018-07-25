@@ -736,7 +736,9 @@ int smb2_list_shares(struct smb2_context *smb2,
                 free(srvsvc_buf);srvsvc_buf=NULL;
                 memset(&srvsvc_dce, 0, srvsvc_dce_len);
 
-status = smb2_write(smb2, fh, dcebuf, dcebuf_len);
+                uint8_t  output_buf[4*1024];
+                uint32_t output_count=4096;
+                status = smb2_ioctl(smb2, fh, dcebuf, dcebuf_len, output_buf, &output_count);
         }
 
         free(serverName); serverName = NULL;
@@ -744,4 +746,30 @@ status = smb2_write(smb2, fh, dcebuf, dcebuf_len);
         smb2_close(smb2, fh);
         smb2_disconnect_share(smb2);
         return status;
+}
+
+/*
+ * Send SMB2_IOCTL command to the server
+  */
+int smb2_ioctl(struct smb2_context *smb2, struct smb2fh *fh,
+               uint8_t *input_buffer, uint32_t input_count,
+               uint8_t *output_buffer, uint32_t *output_count)
+{
+        struct sync_cb_data cb_data;
+
+        cb_data.is_finished = 0;
+
+        if (smb2_ioctl_async(smb2, fh,
+                             input_buffer, input_count,
+                             output_buffer, output_count,
+                             generic_status_cb, &cb_data) != 0) {
+                smb2_set_error(smb2, "smb2_ioctl_async failed");
+                return -1;
+        }
+
+        if (wait_for_reply(smb2, &cb_data) < 0) {
+                return -1;
+        }
+
+        return cb_data.status;
 }

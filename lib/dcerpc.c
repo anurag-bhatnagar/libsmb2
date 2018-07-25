@@ -1,4 +1,5 @@
 #include "dcerpc.h"
+#include <locale.h>
 
 static uint64_t global_call_id = 1;
 
@@ -282,6 +283,7 @@ dcerpc_init_stringValue(char     *string,
         stringVal->offset     = 0;
         stringVal->length     = stringVal->max_length;
 
+        setlocale(LC_ALL, "en_US.utf8");
         nmlen = len * 2;
         nmbuf = (wchar_t *) malloc (nmlen);
         memset(nmbuf, 0, nmlen);
