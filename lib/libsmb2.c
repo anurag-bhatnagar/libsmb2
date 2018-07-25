@@ -284,6 +284,11 @@ decode_dirents(struct smb2_context *smb2, struct smb2dir *dir,
                 ent->dirent.st.smb2_mtime_nsec = fs.last_write_time.tv_usec * 1000;
                 ent->dirent.st.smb2_ctime = fs.change_time.tv_sec;
                 ent->dirent.st.smb2_ctime_nsec = fs.change_time.tv_usec * 1000;
+                ent->dirent.st.smb2_crtime = fs.creation_time.tv_sec;
+                ent->dirent.st.smb2_crtime_nsec = fs.creation_time.tv_usec * 1000;
+                ent->dirent.attributes = fs.file_attributes;
+                ent->dirent.allocation_size = fs.allocation_size;
+                ent->dirent.ea_size = fs.ea_size;
 
                 offset += fs.next_entry_offset;
         } while (fs.next_entry_offset);
