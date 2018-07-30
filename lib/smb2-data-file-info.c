@@ -84,6 +84,36 @@ smb2_decode_file_standard_info(struct smb2_context *smb2,
 }
 
 int
+smb2_decode_file_full_ea_info(struct smb2_context *smb2,
+                              void *memctx,
+                              struct smb2_file_full_ea_info *fs,
+                              struct smb2_iovec *vec)
+{
+        smb2_get_uint32(vec, 0, &fs->next_entry_offset);
+        smb2_get_uint8(vec, 4, &fs->flag);
+        smb2_get_uint8(vec, 5, &fs->ea_name_length);
+        smb2_get_uint16(vec, 6, &fs->ea_value_length);
+
+        fs->ea_name = (uint8_t*)malloc(fs->ea_name_length);
+        if ( fs->ea_name == NULL ) {
+                smb2_set_error(smb2, "Failed to allocate ea name");
+                return -1;
+        }
+
+        fs->ea_value = (uint8_t*)malloc(fs->ea_value_length);
+        if ( fs->ea_value == NULL ) {
+                smb2_set_error(smb2, "Failed to allocate ea value");
+                free(fs->ea_name);
+                return -1;
+        }
+
+        memcpy(fs->ea_name, vec->buf + 8, fs->ea_name_length);
+        memcpy(fs->ea_value, vec->buf + 8 + fs->ea_name_length, fs->ea_value_length);
+
+        return 0;
+}
+
+int
 smb2_decode_file_all_info(struct smb2_context *smb2,
                           void *memctx,
                           struct smb2_file_all_info *fs,

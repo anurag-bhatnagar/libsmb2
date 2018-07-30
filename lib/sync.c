@@ -1139,3 +1139,11 @@ smb2_set_file_basic_info(struct smb2_context *smb2,
 
         return cb_data.status;
 }
+
+int
+smb2_set_file_full_ea_info(struct smb2_context *smb2,
+                           const char *path,
+                           struct smb2_stat_64 *st)
+{
+  return 0;
+}

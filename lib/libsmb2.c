@@ -2949,3 +2949,12 @@ smb2_query_file_all_info_async(struct smb2_context *smb2, const char *path,
 
         return 0;
 }
+
+int
+smb2_set_file_full_ea_info_async(struct smb2_context *smb2,
+                                 const char *path,
+                                 struct smb2_file_full_ea_info *info,
+                                 smb2_command_cb cb, void *cb_data)
+{
+  return 0;
+}

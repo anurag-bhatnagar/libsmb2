@@ -196,6 +196,17 @@ smb2_process_query_info_variable(struct smb2_context *smb2,
                                 return -1;
                         }
                         break;
+                case SMB2_FILE_FULL_EA_INFORMATION:
+                        ptr = smb2_alloc_init(smb2,
+                                  sizeof(struct smb2_file_full_ea_info));
+                        if (smb2_decode_file_full_ea_info(smb2, ptr, ptr,
+                                                          &vec)) {
+                                smb2_set_error(smb2, "could not decode file "
+                                               "full ea info. %s",
+                                               smb2_get_error(smb2));
+                                return -1;
+                        }
+                        break;
                 case SMB2_FILE_ALL_INFORMATION:
                         ptr = smb2_alloc_init(smb2,
                                   sizeof(struct smb2_file_all_info));

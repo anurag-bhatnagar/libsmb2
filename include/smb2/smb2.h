@@ -462,6 +462,7 @@ struct smb2_read_reply {
 #define SMB2_FILE_BASIC_INFORMATION             0x04
 #define SMB2_FILE_STANDARD_INFORMATION          0x05
 #define SMB2_FILE_RENAME_INFORMATION            0x0a
+#define SMB2_FILE_FULL_EA_INFORMATION           0x0f
 #define SMB2_FILE_ALL_INFORMATION               0x12
 #define SMB2_FILE_END_OF_FILE_INFORMATION       0x14
 
@@ -511,11 +512,33 @@ struct smb2_file_standard_info {
 };
 
 /*
+* FILE_FULL_EA_INFORMATION
+*/
+struct smb2_file_full_ea_info {
+        uint32_t next_entry_offset;
+        uint8_t flag;
+        uint8_t ea_name_length;
+        uint16_t ea_value_length;
+        uint8_t *ea_name;
+        uint8_t *ea_value;
+};
+
+/*
+* FILE_GET_EA_INFORMATION
+*/
+struct smb2_file_get_ea_info {
+        uint32_t next_entry_offset;
+        uint8_t ea_name_length;
+        uint8_t *ea_name;
+};
+
+/*
  * FILE_ALL_INFORMATION.
  */
 struct smb2_file_all_info {
         struct smb2_file_basic_info basic;
         struct smb2_file_standard_info standard;
+        struct smb2_file_full_ea_info extended;
         uint64_t index_number;
         uint32_t ea_size;
         uint32_t access_flags;
