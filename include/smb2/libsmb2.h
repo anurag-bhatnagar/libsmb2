@@ -873,6 +873,34 @@ int smb2_list_shares(struct smb2_context *smb2,
                      struct smb2_shareinfo **shares,
                      int *numshares);
 
+/* Async set_file_full_ea_info()
+ *
+ * Returns
+ *  0     : The operation was initiated. Result of the operation will be
+ *          reported through the callback function.
+ * -errno : There was an error. The callback function will not be invoked.
+ *
+ * When the callback is invoked, status indicates the result:
+ *      0 : Success.
+ * -errno : An error occured.
+ *          Command_data is NULL.
+ */
+int
+smb2_set_file_full_ea_info_async(struct smb2_context *smb2,
+                                 const char *path,
+                                 struct smb2_file_full_ea_info *info,
+                                 smb2_command_cb cb, void *cb_data);
+
+/* Sync set_file_extended_info()
+ * Function returns
+ *      0 : Success
+ * -errno : An error occured.
+ */
+int
+smb2_set_file_full_ea_info(struct smb2_context *smb2,
+                           const char *path,
+                           struct smb2_stat_64 *st);
+
 #ifdef __cplusplus
 }
 #endif
