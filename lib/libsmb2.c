@@ -2951,10 +2951,92 @@ smb2_query_file_all_info_async(struct smb2_context *smb2, const char *path,
 }
 
 int
-smb2_set_file_full_ea_info_async(struct smb2_context *smb2,
-                                 const char *path,
-                                 struct smb2_file_full_ea_info *info,
-                                 smb2_command_cb cb, void *cb_data)
+smb2_set_file_ea_info_async(struct smb2_context *smb2,
+                            const char *path,
+                            struct smb2_file_ea_info *info,
+                            const int count,
+                            smb2_command_cb cb, void *cb_data)
 {
-  return 0;
+
+        struct smb2_create_request cr_req;
+        struct smb2_set_info_request si_req;
+        struct smb2_close_request cl_req;
+        struct smb2_pdu *pdu, *next_pdu;
+        struct set_basicinfo_cb_data *basicinfo_data = NULL;
+
+        if (info == NULL) {
+                smb2_set_error(smb2, "%s : no info provided", __func__);
+                return -1;
+        }
+
+        basicinfo_data = (struct set_basicinfo_cb_data*) malloc(sizeof(struct set_basicinfo_cb_data));
+        if (basicinfo_data == NULL) {
+                smb2_set_error(smb2, "%s : failed to allocate info data", __func__);
+                return -1;
+        }
+        memset(basicinfo_data, 0, sizeof(struct set_basicinfo_cb_data));
+        basicinfo_data->cb = cb;
+        basicinfo_data->cb_data = cb_data;
+
+        /* CREATE command */
+        memset(&cr_req, 0, sizeof(struct smb2_create_request));
+        cr_req.requested_oplock_level = SMB2_OPLOCK_LEVEL_NONE;
+        cr_req.impersonation_level = SMB2_IMPERSONATION_IMPERSONATION;
+        cr_req.desired_access = SMB2_FILE_WRITE_ATTRIBUTES| SMB2_FILE_WRITE_EA;
+        cr_req.file_attributes = 0;
+        cr_req.share_access = SMB2_FILE_SHARE_READ | SMB2_FILE_SHARE_WRITE;
+        cr_req.create_disposition = SMB2_FILE_OPEN;
+        cr_req.create_options = 0;
+        cr_req.name = path;
+
+        pdu = smb2_cmd_create_async(smb2, &cr_req, set_basicinfo_create_cb, basicinfo_data);
+        if (pdu == NULL) {
+                smb2_set_error(smb2, "Failed to create create command");
+                free(basicinfo_data);
+                return -1;
+        }
+
+        /* SET INFO command */
+        struct smb2_file_full_ea_info_all ea_info_all;
+        ea_info_all.eabuf = (uint8_t*)malloc(5*1024);
+        ea_info_all.eabuf_len = 0;
+        smb2_encode_file_full_ea_info(smb2, info, count, ea_info_all.eabuf, &ea_info_all.eabuf_len); 
+        memset(&si_req, 0, sizeof(struct smb2_set_info_request));
+        si_req.info_type = SMB2_0_INFO_FILE;
+        si_req.file_info_class = SMB2_FILE_FULL_EA_INFORMATION;
+        si_req.file_id.persistent_id = compound_file_id.persistent_id;
+        si_req.file_id.volatile_id= compound_file_id.volatile_id;
+        si_req.input_data = &ea_info_all;
+
+        next_pdu = smb2_cmd_set_info_async(smb2, &si_req,
+                                           set_basicinfo_set_cb, basicinfo_data);
+        if (next_pdu == NULL) {
+                smb2_set_error(smb2, "Failed to create set-info command. %s",
+                               smb2_get_error(smb2));
+                free(basicinfo_data);
+                smb2_free_pdu(smb2, pdu);
+                return -1;
+        }
+        smb2_add_compound_pdu(smb2, pdu, next_pdu);
+
+        /* CLOSE command */
+        memset(&cl_req, 0, sizeof(struct smb2_close_request));
+        cl_req.flags = SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB;
+        cl_req.file_id.persistent_id = compound_file_id.persistent_id;
+        cl_req.file_id.volatile_id= compound_file_id.volatile_id;
+
+        next_pdu = smb2_cmd_close_async(smb2, &cl_req, set_basicinfo_close_cb, basicinfo_data);
+        if (next_pdu == NULL) {
+                smb2_set_error(smb2, "Failed to create close command. %s",
+                               smb2_get_error(smb2));
+                basicinfo_data->cb(smb2, -ENOMEM, NULL, basicinfo_data->cb_data);
+                free(basicinfo_data);
+                smb2_free_pdu(smb2, pdu);
+                return -1;
+        }
+        smb2_add_compound_pdu(smb2, pdu, next_pdu);
+
+        smb2_queue_pdu(smb2, pdu);
+
+        return 0;
 }

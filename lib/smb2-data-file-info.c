@@ -90,17 +90,17 @@ smb2_decode_file_full_ea_info(struct smb2_context *smb2,
                               struct smb2_iovec *vec)
 {
         smb2_get_uint32(vec, 0, &fs->next_entry_offset);
-        smb2_get_uint8(vec, 4, &fs->flag);
+        smb2_get_uint8(vec, 4, &fs->flags);
         smb2_get_uint8(vec, 5, &fs->ea_name_length);
         smb2_get_uint16(vec, 6, &fs->ea_value_length);
 
-        fs->ea_name = (uint8_t*)malloc(fs->ea_name_length);
+        fs->ea_name[0] = (uint8_t*)malloc(fs->ea_name_length);
         if ( fs->ea_name == NULL ) {
                 smb2_set_error(smb2, "Failed to allocate ea name");
                 return -1;
         }
 
-        fs->ea_value = (uint8_t*)malloc(fs->ea_value_length);
+        fs->ea_value[0] = (uint8_t*)malloc(fs->ea_value_length);
         if ( fs->ea_value == NULL ) {
                 smb2_set_error(smb2, "Failed to allocate ea value");
                 free(fs->ea_name);
@@ -110,6 +110,66 @@ smb2_decode_file_full_ea_info(struct smb2_context *smb2,
         memcpy(fs->ea_name, vec->buf + 8, fs->ea_name_length);
         memcpy(fs->ea_value, vec->buf + 8 + fs->ea_name_length, fs->ea_value_length);
 
+        return 0;
+}
+
+int smb2_encode_file_full_ea_info(struct smb2_context *smb2,
+                                  struct smb2_file_ea_info *info,
+                                  const int count,
+                                  uint8_t *buffer, 
+                                  uint32_t *buffer_len)
+{
+        uint32_t offset = 0;
+
+        if (buffer == NULL || buffer_len == NULL) {
+                smb2_set_error(smb2, "Buffer not allocated for file ea info");
+                return -1;
+        }
+
+        struct smb2_file_ea_info* tmp_info = info;
+
+        uint32_t *pOffset = NULL;
+        int entries = 0;
+        while( entries < count ) {
+                struct smb2_file_full_ea_info *full_ea_info = \
+                        (struct smb2_file_full_ea_info *)(buffer+offset);
+                full_ea_info->ea_name_length = strlen(tmp_info->name);
+                full_ea_info->ea_value_length = htole16(tmp_info->value_len); 
+                full_ea_info->flags = 0;
+
+                pOffset = &full_ea_info->next_entry_offset;
+
+                /* copy to buffer */
+                offset += sizeof(struct smb2_file_full_ea_info);
+                memcpy(buffer+offset, &tmp_info->name, full_ea_info->ea_name_length+1);
+                offset += full_ea_info->ea_name_length+1;
+                memcpy(buffer+offset, &tmp_info->value, full_ea_info->ea_value_length);
+                offset += full_ea_info->ea_value_length;
+
+                /*
+                 * When multiple FILE_FULL_EA_INFORMATION data elements are present in 
+                 * the buffer, each MUST be aligned on a 4-byte boundary. Any bytes inserted
+                 * for alignment SHOULD be set to zero, and the receiver MUST ignore them.
+                 * No padding is required following the last data element.
+                 */
+                uint32_t len = sizeof(struct smb2_file_full_ea_info) +\
+                               full_ea_info->ea_name_length + 1 +\
+                               full_ea_info->ea_value_length;
+
+                if ((len & 0x03) != 0) {
+                        uint32_t padlen = 0;
+                        padlen = 4 - (len & 0x03);
+                        offset += padlen;
+                }
+
+                if ( entries < (count-1) )
+                  *pOffset = htole32(offset);
+
+                entries++;
+                tmp_info++;
+        }
+
+        *buffer_len = offset;
         return 0;
 }
 
