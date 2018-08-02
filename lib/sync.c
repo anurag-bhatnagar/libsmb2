@@ -775,9 +775,29 @@ int smb2_ioctl(struct smb2_context *smb2, struct smb2fh *fh,
 }
 
 int
-smb2_set_file_full_ea_info(struct smb2_context *smb2,
-                           const char *path,
-                           struct smb2_stat_64 *st)
+smb2_set_file_ea_info(struct smb2_context *smb2,
+                      const char *path,
+                      struct smb2_file_ea_info* info,
+                      const int count)
 {
-  return 0;
+        struct sync_cb_data cb_data;
+
+        if (info == NULL) {
+                smb2_set_error(smb2, "%s : no info to set");
+                return -1;
+        }
+
+        cb_data.is_finished = 0;
+
+        if (smb2_set_file_ea_info_async(smb2, path, info, count,
+                                        generic_status_cb, &cb_data) != 0) {
+                smb2_set_error(smb2, "%s failed : %s", __func__, smb2_get_error(smb2));
+                return -1;
+        }
+
+        if (wait_for_reply(smb2, &cb_data) < 0) {
+                return -1;
+        }
+
+        return cb_data.status;
 }

@@ -509,20 +509,29 @@ struct smb2_file_standard_info {
 };
 
 /*
-* FILE_FULL_EA_INFORMATION
-*/
-struct smb2_file_full_ea_info {
-        uint32_t next_entry_offset;
-        uint8_t flag;
-        uint8_t ea_name_length;
-        uint16_t ea_value_length;
-        uint8_t *ea_name;
-        uint8_t *ea_value;
+ * FILE_FULL_EA_INFORMATION
+ */
+
+struct smb2_file_ea_info {
+        char name[255];
+        uint8_t* value;
+        uint32_t value_len;
 };
 
-/*
-* FILE_GET_EA_INFORMATION
-*/
+struct smb2_file_full_ea_info {
+        uint32_t next_entry_offset;
+        uint8_t flags;
+        uint8_t ea_name_length;
+        uint16_t ea_value_length;
+        uint8_t* ea_name[0];
+        uint8_t* ea_value[0];
+};
+
+struct smb2_file_full_ea_info_all {
+        uint8_t *eabuf;
+        uint32_t eabuf_len;
+};
+
 struct smb2_file_get_ea_info {
         uint32_t next_entry_offset;
         uint8_t ea_name_length;
@@ -535,7 +544,6 @@ struct smb2_file_get_ea_info {
 struct smb2_file_all_info {
         struct smb2_file_basic_info basic;
         struct smb2_file_standard_info standard;
-        struct smb2_file_full_ea_info extended;
         uint64_t index_number;
         uint32_t ea_size;
         uint32_t access_flags;

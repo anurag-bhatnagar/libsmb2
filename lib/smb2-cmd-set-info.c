@@ -124,6 +124,58 @@ smb2_encode_set_info_request(struct smb2_context *smb2,
                         free(name);
 
                         break;
+                case SMB2_FILE_BASIC_INFORMATION:
+                {
+                        struct smb2_file_basic_info *basic_info = NULL;
+                        basic_info = (struct smb2_file_basic_info *)req->input_data;
+
+                        len = sizeof(struct smb2_file_basic_info) + 4;
+
+                        smb2_set_uint32(iov, 4, len); /* buffer length */
+                        buf = malloc(len);
+                        if (buf == NULL) {
+                                smb2_set_error(smb2, "Failed to allocate set "
+                                               "info basic-info buffer");
+                                return -1;
+                        }
+                        memset(buf, 0, len);
+                        iov = smb2_add_iovector(smb2, &pdu->out, buf, len, free);
+
+                        if (basic_info->creation_time.tv_sec !=0 || basic_info->creation_time.tv_usec != 0) {
+                                smb2_set_uint64(iov, 0, timeval_to_win(&basic_info->creation_time));
+                        }
+                        if (basic_info->last_access_time.tv_sec !=0 || basic_info->last_access_time.tv_usec != 0) {
+                                smb2_set_uint64(iov, 8, timeval_to_win(&basic_info->last_access_time));
+                        }
+                        if (basic_info->last_write_time.tv_sec !=0 || basic_info->last_write_time.tv_usec != 0) {
+                                smb2_set_uint64(iov, 16, timeval_to_win(&basic_info->last_write_time));
+                        }
+                        if (basic_info->change_time.tv_sec !=0 || basic_info->change_time.tv_usec != 0) {
+                                smb2_set_uint64(iov, 24, timeval_to_win(&basic_info->change_time));
+                        }
+                        smb2_set_uint32(iov, 32, basic_info->file_attributes);
+                        //memcpy(buf, basic_info, 40);
+                }
+                        break;
+                case SMB2_FILE_FULL_EA_INFORMATION:
+								{
+                        struct smb2_file_full_ea_info_all *info = NULL;
+                        info = (struct smb2_file_full_ea_info_all *)req->input_data;
+
+                        smb2_set_uint32(iov, 4, info->eabuf_len); /* buffer length */
+
+                        buf = malloc(info->eabuf_len);
+                        if (buf == NULL) {
+                                smb2_set_error(smb2, "Failed to allocate set "
+                                                     "info data buffer");
+                                return -1;
+                        }
+                        memset(buf, 0, info->eabuf_len);
+                        iov = smb2_add_iovector(smb2, &pdu->out, buf, info->eabuf_len, free);
+                        memcpy(iov->buf, info->eabuf, info->eabuf_len);
+                        free(info->eabuf);
+                }
+                break;
                 default:
                         smb2_set_error(smb2, "Can not enccode info_type/"
                                        "info_class %d/%d yet",
