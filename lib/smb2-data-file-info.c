@@ -174,6 +174,28 @@ int smb2_encode_file_full_ea_info(struct smb2_context *smb2,
 }
 
 int
+smb2_decode_file_stream_info(struct smb2_context *smb2,
+                             void *memctx,
+                             struct smb2_file_stream_info *fs,
+                             struct smb2_iovec *vec)
+{
+        smb2_get_uint32(vec, 0, &fs->next_entry_offset);
+        smb2_get_uint32(vec, 4, &fs->stream_name_length);
+        smb2_get_uint64(vec, 8, &fs->stream_size);
+        smb2_get_uint64(vec, 16, &fs->stream_allocation_size);
+
+        fs->stream_name = (uint8_t*)malloc(fs->stream_name_length);
+        if ( fs->stream_name == NULL ) {
+                smb2_set_error(smb2, "Failed to allocate stream name");
+                return -1;
+        }
+
+        memcpy(fs->stream_name, vec->buf + 24, fs->stream_name_length);
+
+        return 0;
+}
+
+int
 smb2_decode_file_all_info(struct smb2_context *smb2,
                           void *memctx,
                           struct smb2_file_all_info *fs,

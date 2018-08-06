@@ -350,6 +350,11 @@ int smb2_encode_file_full_ea_info(struct smb2_context *smb2,
                                   uint8_t *buffer,
                                   uint32_t *buffer_len);
 
+int smb2_decode_file_stream_info(struct smb2_context *smb2,
+                                 void *memctx,
+                                 struct smb2_file_stream_info *fs,
+                                 struct smb2_iovec *vec);
+
 int smb2_decode_file_all_info(struct smb2_context *smb2,
                               void *memctx,
                               struct smb2_file_all_info *fs,
