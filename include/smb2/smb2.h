@@ -465,6 +465,7 @@ struct smb2_read_reply {
 #define SMB2_FILE_FULL_EA_INFORMATION           0x0f
 #define SMB2_FILE_ALL_INFORMATION               0x12
 #define SMB2_FILE_END_OF_FILE_INFORMATION       0x14
+#define SMB2_FILE_STREAM_INFORMATION            0x16
 
 /* Filesystem information class : for SMB2_0_INFO_FILESYSTEM */
 #define SMB2_FILE_FS_SIZE_INFORMATION              3
@@ -539,6 +540,17 @@ struct smb2_file_get_ea_info {
         uint32_t next_entry_offset;
         uint8_t ea_name_length;
         uint8_t *ea_name;
+};
+
+/*
+ * FILE_STREAM_INFORMATION
+ */
+struct smb2_file_stream_info {
+        uint32_t next_entry_offset;
+        uint32_t stream_name_length;
+        uint64_t stream_size;
+        uint64_t stream_allocation_size;
+        uint8_t* stream_name;
 };
 
 /*
